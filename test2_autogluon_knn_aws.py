@@ -172,7 +172,7 @@ df_val.loc[:, target] = np.log(df_val[target]+1)
 # Only takes highest target values
 print('only keep high target')
 df_train = df_train.sort_values(by=target, ascending=False)[:int(train_rows*0.3)]
-df_val = df_val.sort_values(by=target, ascending=False)[:int(train_rows*0.3)]
+#df_val = df_val.sort_values(by=target, ascending=False)[:int(train_rows*0.3)]
 
 if input_dim!=len(cols_list): raise Exception("input_din != len(cols_list)")
 print(f"input dim:{input_dim}")
