@@ -16,13 +16,13 @@ import boto3
 sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 1)
 
 # df_train(1200000) df_test(800000)
-train_rows = 200  #1_200_000
-test_rows = 50  #800_000
+train_rows = 1_200_000
+test_rows = 800_000
 
 target = 'Premium Amount'
 use_featuretools = True
 use_pca = True
-seed = 1
+seed = int(os.getenv('SEED'))
 num_neighbors = 50
 
 print(f'SEED:{seed}')
@@ -81,8 +81,13 @@ s3.upload_file(local_file, bucket, key)
 '''
 
 print('downloading ...')
+s3 = boto3.client('s3')
+bucket = 'test-ecs-s3'
+key = 'kaggle_input/train_imputed.parquet'
+local_file = '/tmp/train_imputed.parquet'
+s3.download_file(bucket, key, local_file)
 
-df = pd.read_parquet('train_imputed.parquet')
+df = pd.read_parquet(local_file)
 input_cols = df.columns.difference([target])
 print('data loaded')
 
@@ -96,13 +101,13 @@ if use_featuretools:
         )
 
     transformation_primitives = [
-        #"add_numeric",           # col1 + col2
+        "add_numeric",           # col1 + col2
         #"subtract_numeric",      # col1 - col2  
-        #"multiply_numeric",      # col1 * col2
+        "multiply_numeric",      # col1 * col2
         #"divide_numeric",        # col1 / col2
         #"square_root",           # sqrt(col1)
         #"square",                # col1^2
-        #"natural_logarithm",     # ln(col1)
+        "natural_logarithm",     # ln(col1)
         #"absolute",              # abs(col1)
         "percentile",            # percentile rank of values
         #"cum_sum",               # cumulative sum
@@ -141,8 +146,8 @@ if use_pca:
     df_pca = pd.DataFrame(pca_final.fit_transform(df[input_cols]), columns=cols_list, index=df.index)
     df_pca.loc[:, target] = df[target]
 
-    df_train = df_pca.iloc[:10000].copy()
-    df_val = df_pca.iloc[10000:20000].copy()
+    df_train = df_pca.iloc[:int(train_rows*0.8)].copy()
+    df_val = df_pca.iloc[int(train_rows*0.8):-test_rows].copy()
     df_test = df_pca.iloc[-test_rows:].copy()
     input_dim = num_pca_cols
 else:
@@ -178,7 +183,7 @@ predictor = TabularPredictor(
 
 predictor.fit(
     df_train,
-    time_limit=20000,  
+    time_limit=200000,  
     presets='high_quality',
     #hyperparameters=advanced_hyperparameters,
     num_bag_folds=4,  # each folds creates one model.
@@ -216,12 +221,15 @@ df_test.loc[:, 'preds_best'] = np.exp(inf_best-1)
 df_test.loc[:, 'preds_top'] = np.exp(inf_top-1)
 
 print('uploading result.')
-#df_test.to_csv(local_file, index=None)
-
+local_file = f'/tmp/preds_{seed}.csv'
+df_test.to_csv(local_file, index=None)
+key = f'kaggle_output/preds_{seed}.csv'
+s3.upload_file(local_file, bucket, key)
 
 print('uploading leaderboard.')
-#leaderboard.to_csv(local_file, index=None)
+local_file = f'/tmp/res_autogluon_{seed}.csv'
+leaderboard.to_csv(local_file, index=None)
+key = f'kaggle_output/res_autogluon_{seed}.csv'
+s3.upload_file(local_file, bucket, key)
 
 print("All done!!")
-
-import pdb; pdb.set_trace()
