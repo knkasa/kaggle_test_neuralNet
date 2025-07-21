@@ -169,6 +169,11 @@ gc.collect()
 df_train.loc[:, target] = np.log(df_train[target]+1)
 df_val.loc[:, target] = np.log(df_val[target]+1)
 
+# Only takes highest target values
+print('only keep high target')
+df_train = df_train.sort_values(by=target, ascending=False)[:int(train_rows*0.3)]
+df_val = df_val.sort_values(by=target, ascending=False)[:int(train_rows*0.3)]
+
 if input_dim!=len(cols_list): raise Exception("input_din != len(cols_list)")
 print(f"input dim:{input_dim}")
 
@@ -221,15 +226,15 @@ df_test.loc[:, 'preds_best'] = np.exp(inf_best-1)
 df_test.loc[:, 'preds_top'] = np.exp(inf_top-1)
 
 print('uploading result.')
-local_file = f'/tmp/predsNN_{seed}.csv'
+local_file = f'/tmp/predsNN_high_{seed}.csv'
 df_test.to_csv(local_file, index=None)
-key = f'kaggle_output/predsNN_{seed}.csv'
+key = f'kaggle_output/predsNN_high_{seed}.csv'
 s3.upload_file(local_file, bucket, key)
 
 print('uploading leaderboard.')
-local_file = f'/tmp/res_autogluonNN_{seed}.csv'
+local_file = f'/tmp/res_autogluonNN_high_{seed}.csv'
 leaderboard.to_csv(local_file, index=None)
-key = f'kaggle_output/res_autogluonNN_{seed}.csv'
+key = f'kaggle_output/res_autogluonNN_high_{seed}.csv'
 s3.upload_file(local_file, bucket, key)
 
 print("All done!!")
