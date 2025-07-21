@@ -212,7 +212,7 @@ preds_top = predictor.predict(df_val.drop(target, axis=1), model=top_model_name)
 
 score_best = np.sqrt(np.mean(np.square(df_val[target] - preds_best)))
 score_top = np.sqrt(np.mean(np.square(df_val[target] - preds_top)))
-print(f"score_best:{score_best}  score_top:{score_top}")
+print(f"score_bestNN:{score_best}  score_topNN:{score_top}")
 
 inf_best = predictor.predict(df_test.drop(target, axis=1), model=best_model_name).values
 inf_top = predictor.predict(df_test.drop(target, axis=1), model=top_model_name).values
@@ -221,15 +221,15 @@ df_test.loc[:, 'preds_best'] = np.exp(inf_best-1)
 df_test.loc[:, 'preds_top'] = np.exp(inf_top-1)
 
 print('uploading result.')
-local_file = f'/tmp/preds_{seed}.csv'
+local_file = f'/tmp/predsNN_{seed}.csv'
 df_test.to_csv(local_file, index=None)
-key = f'kaggle_output/preds_{seed}.csv'
+key = f'kaggle_output/predsNN_{seed}.csv'
 s3.upload_file(local_file, bucket, key)
 
 print('uploading leaderboard.')
-local_file = f'/tmp/res_autogluon_{seed}.csv'
+local_file = f'/tmp/res_autogluonNN_{seed}.csv'
 leaderboard.to_csv(local_file, index=None)
-key = f'kaggle_output/res_autogluon_{seed}.csv'
+key = f'kaggle_output/res_autogluonNN_{seed}.csv'
 s3.upload_file(local_file, bucket, key)
 
 print("All done!!")
