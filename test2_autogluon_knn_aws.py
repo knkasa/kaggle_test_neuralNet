@@ -91,6 +91,22 @@ df = pd.read_parquet(local_file)
 input_cols = df.columns.difference([target])
 print('data loaded')
 
+print('reducing data size')
+df_train = df[:train_rows].copy()
+df_test = df[train_rows:].copy()
+del df
+gc.collect()
+
+df_val = df_train[:10000].copy()
+#df_train = df_train[10000:].sort_values(by=target, ascending=False)[:int(train_rows*0.3)]
+#df_train =  df_train.sample(frac=1, random_state=seed)
+#df_train = df_train[:10000].copy()
+df_train = df_train[10000:20000].copy()
+
+df = pd.concat([df_train, df_val], axis=0)
+df = pd.concat([df, df_test], axis=0)
+
+
 if use_featuretools:
     df['id'] = range(len(df))
     es = ft.EntitySet(id="new_data")
@@ -146,8 +162,11 @@ if use_pca:
     df_pca = pd.DataFrame(pca_final.fit_transform(df[input_cols]), columns=cols_list, index=df.index)
     df_pca.loc[:, target] = df[target]
 
-    df_train = df_pca.iloc[:int(train_rows*0.8)].copy()
-    df_val = df_pca.iloc[int(train_rows*0.8):-test_rows].copy()
+    #df_train = df_pca.iloc[:int(train_rows*0.8)].copy()
+    #df_val = df_pca.iloc[int(train_rows*0.8):-test_rows].copy()
+    #df_test = df_pca.iloc[-test_rows:].copy()
+    df_train = df_pca.iloc[:10000].copy()
+    df_val = df_pca.iloc[10000:20000].copy()
     df_test = df_pca.iloc[-test_rows:].copy()
     input_dim = num_pca_cols
 else:
@@ -170,8 +189,8 @@ df_train.loc[:, target] = np.log(df_train[target]+1)
 df_val.loc[:, target] = np.log(df_val[target]+1)
 
 # Only takes highest target values
-print('only keep high target')
-df_train = df_train.sort_values(by=target, ascending=False)[:int(train_rows*0.3)]
+#print('only keep high target')
+#df_train = df_train.sort_values(by=target, ascending=False)[:int(train_rows*0.3)]
 #df_val = df_val.sort_values(by=target, ascending=False)[:int(train_rows*0.3)]
 
 if input_dim!=len(cols_list): raise Exception("input_din != len(cols_list)")
@@ -217,7 +236,7 @@ preds_top = predictor.predict(df_val.drop(target, axis=1), model=top_model_name)
 
 score_best = np.sqrt(np.mean(np.square(df_val[target] - preds_best)))
 score_top = np.sqrt(np.mean(np.square(df_val[target] - preds_top)))
-print(f"score_bestNN:{score_best}  score_topNN:{score_top}")
+print(f"score_best:{score_best}  score_top:{score_top}")
 
 inf_best = predictor.predict(df_test.drop(target, axis=1), model=best_model_name).values
 inf_top = predictor.predict(df_test.drop(target, axis=1), model=top_model_name).values
@@ -226,15 +245,15 @@ df_test.loc[:, 'preds_best'] = np.exp(inf_best-1)
 df_test.loc[:, 'preds_top'] = np.exp(inf_top-1)
 
 print('uploading result.')
-local_file = f'/tmp/predsNN_high_{seed}.csv'
+local_file = f'/tmp/preds_high_{seed}.csv'
 df_test.to_csv(local_file, index=None)
-key = f'kaggle_output/predsNN_high_{seed}.csv'
+key = f'kaggle_output/preds_high_{seed}.csv'
 s3.upload_file(local_file, bucket, key)
 
 print('uploading leaderboard.')
-local_file = f'/tmp/res_autogluonNN_high_{seed}.csv'
+local_file = f'/tmp/res_autogluon_{seed}.csv'
 leaderboard.to_csv(local_file, index=None)
-key = f'kaggle_output/res_autogluonNN_high_{seed}.csv'
+key = f'kaggle_output/res_autogluon_{seed}.csv'
 s3.upload_file(local_file, bucket, key)
 
 print("All done!!")
